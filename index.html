@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sudoku Game — Backtracking Generator</title>
+
+  <style>
+    :root{
+      --accent:#00796b;
+      --accent-dark:#004d40;
+      --bg1:#e8f5e9;
+      --bg2:#e0f2f1;
+      --cell-size:52px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, "Poppins", Arial, sans-serif;
+      background: linear-gradient(135deg, var(--bg1), #f0f9f4);
+      color: #09322b;
+      display: flex;
+      min-height: 100vh;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .container {
+      width: 980px;
+      max-width: 100%;
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(4,30,23,0.08);
+      padding: 20px;
+    }
+
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    h1 { margin: 0; font-size: 20px; color: var(--accent); }
+    .subtitle { color: #3b6159; margin: 6px 0 0; font-size: 13px; }
+    .top-row { display: flex; gap: 20px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; }
+    button {
+      background: var(--accent);
+      border: none;
+      color: white;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    button.secondary { background: #efefef; color: #333; border: 1px solid #ddd; }
+    button.danger { background: #e53935; }
+
+    .board-area { display: flex; gap: 20px; margin-top: 18px; flex-wrap: wrap; }
+    .board { padding: 12px; border-radius: 10px; background: linear-gradient(180deg,#ffffff,#fbfffd); border: 2px solid rgba(0,0,0,0.04); }
+
+    table { border-collapse: collapse; margin: auto; }
+    td {
+      width: var(--cell-size);
+      height: var(--cell-size);
+      padding: 0;
+      border: 1px solid #cfcfcf;
+      position: relative;
+    }
+
+    /* Thicker lines for 3x3 boxes */
+    tr:nth-child(3n) td { border-bottom-width: 3px; }
+    td:nth-child(3n) { border-right-width: 3px; }
+    td:nth-child(1) { border-left-width: 3px; }
+    tr:nth-child(1) td { border-top-width: 3px; }
+
+    input.cell {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      text-align: center;
+      font-size: 20px;
+      outline: none;
+      background: transparent;
+      cursor: text;
+      color: #0a3a34;
+      /* standardized appearance reset */
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    /* Remove spinner arrows in WebKit (Chrome/Safari) */
+    input[type="number"].cell::-webkit-outer-spin-button,
+    input[type="number"].cell::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    input.given {
+      font-weight: 700;
+      background: #e8fdf6;
+      color: var(--accent-dark);
+      cursor: default;
+    }
+
+    input.error {
+      background: #fff0f0;
+      color: #b71c1c;
+    }
+
+    .info {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      gap: 10px;
+      width: 300px;
+    }
+
+    .info .status {
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #fbfffb;
+      border: 1px solid #e6f3ee;
+      color: #0f3f35;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .option-row { display:flex; gap:8px; align-items:center; }
+    label { font-size: 14px; color: #2b5450; }
+    select { padding: 8px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; }
+
+    small { display: block; color: #5d7b75; margin-top: 6px; font-size: 12px; }
+    footer { margin-top: 14px; text-align: center; color: #6a8a84; font-size: 13px; }
+
+    .muted { color: #4d6b66; font-size: 13px; }
+    .hint { font-size: 13px; color: #2b645d; }
+
+    @media (max-width:880px) {
+      .board-area { flex-direction: column; align-items: center; }
+      .info { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" role="application" aria-label="Sudoku Game">
+    <header>
+      <div>
+        <h1>Sudoku Game</h1>
+        <div class="subtitle">Backtracking generator — valid puzzles with unique solution</div>
+      </div>
+      <div class="muted">Design & Analysis of Algorithms — Project</div>
+    </header>
+
+    <div class="top-row">
+      <div class="controls" role="region" aria-label="Game controls">
+        <button id="newBtn">Start New Game</button>
+        <button id="restartBtn" class="secondary">Restart (New Puzzle)</button>
+        <button id="endBtn" class="danger">End Game</button>
+        <button id="checkBtn" class="secondary">Check Solution</button>
+        <button id="showBtn" class="secondary">Show Solution</button>
+      </div>
+
+      <div class="info" role="status" aria-live="polite">
+        <div class="option-row">
+          <label for="difficulty">Difficulty:</label>
+          <select id="difficulty" aria-label="Difficulty">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div id="status" class="status">Loading puzzle…</div>
+        <small>Given (pre-filled) cells are locked. Fill the rest to play.</small>
+      </div>
+    </div>
+
+    <div class="board-area">
+      <div class="board" aria-hidden="false">
+        <table id="sudoku-grid" aria-label="Sudoku grid" role="grid"></table>
+      </div>
+    </div>
+
+    <footer>
+      <div class="hint">Tip: Click Start New Game to generate a fresh puzzle. End Game will lock the board.</div>
+    </footer>
+  </div>
+
+  <script>
+    // ---------- Sudoku Game Logic (vanilla JS) ----------
+    const SIZE = 9;
+    const GRID = document.getElementById('sudoku-grid');
+    const statusDiv = document.getElementById('status');
+    const newBtn = document.getElementById('newBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const endBtn = document.getElementById('endBtn');
+    const checkBtn = document.getElementById('checkBtn');
+    const showBtn = document.getElementById('showBtn');
+    const difficultySelect = document.getElementById('difficulty');
+
+    let solutionBoard = null; // full solved board
+    let puzzleBoard = null;   // board shown to user (zeros for empty)
+    let gameActive = true;
+
+    // Build the grid DOM
+    function buildGrid(){
+      GRID.innerHTML = '';
+      for(let r=0;r<SIZE;r++){
+        const tr = document.createElement('tr');
+        for(let c=0;c<SIZE;c++){
+          const td = document.createElement('td');
+          const inp = document.createElement('input');
+          inp.className = 'cell';
+          inp.id = `cell-${r}-${c}`;
+          inp.type = 'number';
+          inp.min = 1;
+          inp.max = 9;
+          inp.autocomplete = 'off';
+          inp.inputMode = 'numeric';
+          inp.setAttribute('aria-label', `Row ${r+1} Column ${c+1}`);
+          // sanitize input
+          inp.addEventListener('input', (e)=>{
+            const v = e.target.value;
+            if(v === '') return;
+            if(!/^[1-9]$/.test(v)){
+              e.target.value = '';
+              return;
+            }
+            e.target.classList.remove('error');
+          });
+          td.appendChild(inp);
+          tr.appendChild(td);
+        }
+        GRID.appendChild(tr);
+      }
+    }
+
+    // Read and write board helpers
+    function getBoardFromDOM(){
+      const b = [];
+      for(let r=0;r<SIZE;r++){
+        const row = [];
+        for(let c=0;c<SIZE;c++){
+          const v = document.getElementById(`cell-${r}-${c}`).value;
+          row.push(v === '' ? 0 : parseInt(v,10));
+        }
+        b.push(row);
+      }
+      return b;
+    }
+
+    function setBoardToDOM(board, lockGiven=true){
+      for(let r=0;r<SIZE;r++){
+        for(let c=0;c<SIZE;c++){
+          const inp = document.getElementById(`cell-${r}-${c}`);
+          const val = board[r][c];
+          inp.value = val === 0 ? '' : val;
+          inp.readOnly = false;
+          inp.classList.remove('given','error');
+        }
+      }
+      if(lockGiven){
+        for(let r=0;r<SIZE;r++){
+          for(let c=0;c<SIZE;c++){
+            const v = board[r][c];
+            const inp = document.getElementById(`cell-${r}-${c}`);
+            if(v !== 0){
+              inp.value = v;
+              inp.readOnly = true;
+              inp.classList.add('given');
+            }
+          }
+        }
+      }
+    }
+
+    function copyBoard(b){
+      return b.map(row => row.slice());
+    }
+
+    // Validity check
+    function isSafe(board, row, col, num){
+      for(let x=0;x<SIZE;x++){
+        if(board[row][x] === num) return false;
+        if(board[x][col] === num) return false;
+      }
+      const sr = row - (row % 3);
+      const sc = col - (col % 3);
+      for(let i=0;i<3;i++){
+        for(let j=0;j<3;j++){
+          if(board[sr+i][sc+j] === num) return false;
+        }
+      }
+      return true;
+    }
+
+    // Standard backtracking solver (returns true if solved in-place)
+    function solveBoard(board){
+      for(let r=0;r<SIZE;r++){
+        for(let c=0;c<SIZE;c++){
+          if(board[r][c] === 0){
+            for(let n=1;n<=9;n++){
+              if(isSafe(board,r,c,n)){
+                board[r][c] = n;
+                if(solveBoard(board)) return true;
+                board[r][c] = 0;
+              }
+            }
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    // Count solutions up to 'limit' (used to check uniqueness)
+    function countSolutions(board, limit = 2){
+      let count = 0;
+      function backtrack(b){
+        if(count >= limit) return;
+        let found = false, rr=-1, cc=-1;
+        for(let i=0;i<SIZE;i++){
+          for(let j=0;j<SIZE;j++){
+            if(b[i][j] === 0){ rr=i; cc=j; found=true; break; }
+          }
+          if(found) break;
+        }
+        if(!found){ count++; return; }
+        for(let num=1; num<=9; num++){
+          if(isSafe(b, rr, cc, num)){
+            b[rr][cc] = num;
+            backtrack(b);
+            b[rr][cc] = 0;
+            if(count >= limit) return;
+          }
+        }
+      }
+      backtrack(board.map(r=>r.slice()));
+      return count;
+    }
+
+    // Generate a full random solved board
+    function generateFullSolved(){
+      const board = Array.from({length:SIZE}, ()=> Array(SIZE).fill(0));
+      function shuffle(arr){
+        for(let i=arr.length-1;i>0;i--){
+          const j = Math.floor(Math.random() * (i+1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      }
+      function fill(b){
+        for(let r=0;r<SIZE;r++){
+          for(let c=0;c<SIZE;c++){
+            if(b[r][c] === 0){
+              const nums = shuffle([1,2,3,4,5,6,7,8,9].slice());
+              for(let n of nums){
+                if(isSafe(b,r,c,n)){
+                  b[r][c] = n;
+                  if(fill(b)) return true;
+                  b[r][c] = 0;
+                }
+              }
+              return false;
+            }
+          }
+        }
+        return true;
+      }
+      fill(board);
+      return board;
+    }
+
+    // Create a puzzle by removing numbers while trying to keep a unique solution
+    function createPuzzleFromSolution(solBoard, difficulty='medium'){
+      const puzzle = copyBoard(solBoard);
+      let removals;
+      if(difficulty === 'easy') removals = 36; // ~45 clues
+      else if(difficulty === 'hard') removals = 54; // ~27 clues
+      else removals = 46; // medium ~35 clues
+
+      const cells = [];
+      for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++) cells.push([r,c]);
+      for(let i=cells.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [cells[i], cells[j]] = [cells[j], cells[i]];
+      }
+
+      let removed = 0;
+      for(const [r,c] of cells){
+        if(removed >= removals) break;
+        const backup = puzzle[r][c];
+        puzzle[r][c] = 0;
+        const cnt = countSolutions(puzzle, 2);
+        if(cnt !== 1){
+          puzzle[r][c] = backup; // revert
+        } else {
+          removed++;
+        }
+      }
+      return puzzle;
+    }
+
+    // UI actions
+    function startNewGame(difficulty = null){
+      gameActive = true;
+      statusDiv.textContent = 'Generating puzzle — please wait...';
+      setTimeout(()=>{
+        try {
+          const diff = difficulty || difficultySelect.value || 'medium';
+          solutionBoard = generateFullSolved();
+          puzzleBoard = createPuzzleFromSolution(solutionBoard, diff);
+          setBoardToDOM(puzzleBoard, true);
+          statusDiv.textContent = `New puzzle (${diff}) — Good luck!`;
+        } catch(err){
+          console.error(err);
+          statusDiv.textContent = 'Failed to generate puzzle, try again.';
+        }
+      }, 20);
+    }
+
+    function endGame(){
+      gameActive = false;
+      for(let r=0;r<SIZE;r++){
+        for(let c=0;c<SIZE;c++){
+          const inp = document.getElementById(`cell-${r}-${c}`);
+          inp.readOnly = true;
+        }
+      }
+      statusDiv.textContent = 'Game ended. Board locked.';
+    }
+
+    function restartGame(){
+      startNewGame();
+    }
+
+    function checkSolution(){
+      const board = getBoardFromDOM();
+      let ok = true;
+      for(let r=0;r<SIZE;r++){
+        for(let c=0;c<SIZE;c++){
+          const val = board[r][c];
+          const inp = document.getElementById(`cell-${r}-${c}`);
+          inp.classList.remove('error');
+          if(val === 0){
+            ok = false;
+          } else {
+            const tmp = board[r][c];
+            board[r][c] = 0;
+            if(!isSafe(board, r, c, tmp)){
+              ok = false;
+              inp.classList.add('error');
+            }
+            board[r][c] = tmp;
+          }
+        }
+      }
+      if(ok){
+        if(solutionBoard && JSON.stringify(board) === JSON.stringify(solutionBoard)){
+          statusDiv.textContent = '✅ Correct! Puzzle solved.';
+        } else {
+          const complete = board.flat().every(x=>x!==0);
+          if(complete && countSolutions(board,2)===1){
+            statusDiv.textContent = '✅ Correct! Puzzle solved.';
+          } else {
+            statusDiv.textContent = '✅ All constraints ok so far (final check inconclusive).';
+          }
+        }
+      } else {
+        statusDiv.textContent = '❌ There are mistakes or empty cells (red cells indicate conflicts).';
+      }
+    }
+
+    function showSolution(){
+      if(!solutionBoard){
+        statusDiv.textContent = 'No solution available.';
+        return;
+      }
+      setBoardToDOM(solutionBoard, true);
+      for(let r=0;r<SIZE;r++){
+        for(let c=0;c<SIZE;c++){
+          const inp = document.getElementById(`cell-${r}-${c}`);
+          inp.readOnly = true;
+          inp.classList.remove('error');
+        }
+      }
+      statusDiv.textContent = 'Solution shown (board locked).';
+      gameActive = false;
+    }
+
+    // Event wiring
+    newBtn.addEventListener('click', ()=> startNewGame());
+    restartBtn.addEventListener('click', ()=> restartGame());
+    endBtn.addEventListener('click', ()=> endGame());
+    checkBtn.addEventListener('click', ()=> checkSolution());
+    showBtn.addEventListener('click', ()=> showSolution());
+
+    GRID.addEventListener('focusin', (e)=>{
+      const el = e.target;
+      if(el && el.classList && el.classList.contains('given')){
+        el.blur();
+      }
+    });
+
+    GRID.addEventListener('input', (e)=>{
+      if(!gameActive){
+        e.target.value = e.target.value ? e.target.value : '';
+      }
+    });
+
+    // Build grid and start first puzzle
+    buildGrid();
+    window.addEventListener('load', ()=> startNewGame());
+
+    // Keyboard navigation
+    GRID.addEventListener('keydown', (e)=>{
+      const el = e.target;
+      if(!el || !el.id) return;
+      const parts = el.id.split('-');
+      if(parts.length !== 3) return;
+      const r = parseInt(parts[1],10), c = parseInt(parts[2],10);
+      let rr = r, cc = c;
+      if(e.key === 'ArrowUp'){ rr = (r+8)%9; document.getElementById(`cell-${rr}-${cc}`).focus(); e.preventDefault(); }
+      else if(e.key === 'ArrowDown'){ rr = (r+1)%9; document.getElementById(`cell-${rr}-${cc}`).focus(); e.preventDefault(); }
+      else if(e.key === 'ArrowLeft'){ cc = (c+8)%9; document.getElementById(`cell-${rr}-${cc}`).focus(); e.preventDefault(); }
+      else if(e.key === 'ArrowRight'){ cc = (c+1)%9; document.getElementById(`cell-${rr}-${cc}`).focus(); e.preventDefault(); }
+      else if(e.key === 'Enter'){ rr = (r+1)%9; document.getElementById(`cell-${rr}-${cc}`).focus(); e.preventDefault(); }
+    });
+  </script>
+</body>
+</html>
